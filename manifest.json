@@ -1,0 +1,20 @@
+{
+  "name": "Wii Balance Scale Pro",
+  "short_name": "WiiScale",
+  "description": "Control Bluetooth BLE y Báscula Digital de Precisión para ESP32 + Nintendo Wii Balance Board",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070B14",
+  "theme_color": "#070B14",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

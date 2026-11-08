@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#070B14" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Wii Balance Scale Pro — ESP32 BLE</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Barra Superior -->
+    <header class="topbar">
+      <div class="brand">
+        <img src="./icon.svg" alt="WiiScale" class="brand-icon" />
+        <div>
+          <h1 class="brand-title">Wii Scale <span class="accent">Pro</span></h1>
+          <div class="status-row">
+            <span id="badgeEsp" class="status-pill offline">
+              <span class="dot"></span>
+              <span id="txtEspStatus">ESP32 Desconectado</span>
+            </span>
+            <span id="badgeBoard" class="status-pill neutral hidden">
+              <span id="txtBoardStatus">Esperando tabla</span>
+            </span>
+            <span id="badgeBattery" class="status-pill battery hidden">🔋 --%</span>
+          </div>
+        </div>
+      </div>
+
+      <button id="btnConnectBle" class="btn btn-connect" type="button">
+        <span id="iconBle">⚡</span>
+        <span id="txtConnectBtn">Conectar</span>
+      </button>
+    </header>
+
+    <!-- Aviso si el navegador no soporta Web Bluetooth -->
+    <div id="bannerUnsupported" class="alert-banner warning hidden">
+      <strong>Navegador sin Web Bluetooth:</strong> Abre esta página en <strong>Google Chrome</strong> o <strong>Microsoft Edge</strong> en tu Android o PC para conectar con el ESP32.
+    </div>
+
+    <!-- Banner instalar como App PWA -->
+    <div id="bannerInstall" class="install-banner hidden">
+      <div>
+        <strong>📲 Instalar como Aplicación</strong>
+        <p>Ábrela a pantalla completa desde tu inicio y úsala incluso sin internet.</p>
+      </div>
+      <div class="install-actions">
+        <button id="btnInstallPwa" class="btn btn-primary btn-sm" type="button">Instalar</button>
+        <button id="btnDismissInstall" class="btn btn-ghost btn-sm" type="button">✕</button>
+      </div>
+    </div>
+
+    <!-- Contenido Principal por Pestañas -->
+    <main class="main-content">
+      <!-- PESTAÑA 1: BÁSCULA PRINCIPAL -->
+      <section id="tab-scale" class="tab-panel active">
+        <div class="hero-card" id="heroCard">
+          <div class="hero-top">
+            <span id="lblMeasureMode" class="mode-chip">CONECTA EL ESP32 PARA INICIAR</span>
+            <div class="unit-selector" role="group" aria-label="Unidades">
+              <button class="unit-btn active" data-unit="kg" type="button">KG</button>
+              <button class="unit-btn" data-unit="lb" type="button">LBS</button>
+              <button class="unit-btn" data-unit="st" type="button">ST</button>
+            </div>
+          </div>
+
+          <div class="weight-display-wrap">
+            <div id="valMainWeight" class="weight-main">0.00</div>
+            <div id="valMainUnit" class="weight-unit">kg</div>
+          </div>
+
+          <div class="weight-sub-row">
+            <span id="valSecondaryWeight">0.0 lb</span>
+            <span id="valBmiChip" class="bmi-chip hidden">IMC: --</span>
+          </div>
+
+          <!-- Barra de Estabilidad -->
+          <div class="stability-box">
+            <div class="stability-header">
+              <span id="txtStabilityLabel">Estabilidad de medición</span>
+              <span id="txtStars" class="stars" aria-label="Estrellas de estabilidad">☆☆☆☆☆</span>
+            </div>
+            <div class="progress-track">
+              <div id="barStability" class="progress-fill" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Botones Rápidos -->
+          <div class="quick-actions">
+            <button id="btnTare" class="btn btn-secondary" type="button" disabled>
+              ⚖️ Poner a Cero
+            </button>
+            <button id="btnSaveWeight" class="btn btn-primary" type="button" disabled>
+              💾 Guardar Pesaje
+            </button>
+            <button id="btnPowerOffBoard" class="btn btn-danger-soft" type="button" disabled title="Apagar Wii Balance Board">
+              ⏻ Apagar Tabla
+            </button>
+          </div>
+        </div>
+
+        <!-- Mini Resumen de Equilibrio Rápido en Pestaña Principal -->
+        <div class="card compact-balance-card">
+          <div class="card-header-inline">
+            <h2>Distribución Rápida</h2>
+            <span id="txtQuickSym" class="subtle-tag">50% Izq · 50% Der</span>
+          </div>
+          <div class="dual-bar-wrap">
+            <div class="split-bar">
+              <div id="barQuickLeft" class="split-left" style="width: 50%"></div>
+            </div>
+            <div class="corner-mini-grid">
+              <div class="corner-pill"><span>TL</span><strong id="miniTL">0.0 kg</strong></div>
+              <div class="corner-pill"><span>TR</span><strong id="miniTR">0.0 kg</strong></div>
+              <div class="corner-pill"><span>BL</span><strong id="miniBL">0.0 kg</strong></div>
+              <div class="corner-pill"><span>BR</span><strong id="miniBR">0.0 kg</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 2: EQUILIBRIO 2D Y 4 CELDAS -->
+      <section id="tab-balance" class="tab-panel">
+        <div class="card">
+          <div class="card-header-inline">
+            <h2>Mapa 2D — Centro de Gravedad</h2>
+            <span id="txtCogCoords" class="mono-tag">X: +0.00 | Y: +0.00</span>
+          </div>
+
+          <div class="radar-container">
+            <canvas id="canvasCog" width="320" height="240"></canvas>
+          </div>
+
+          <div class="symmetry-bars">
+            <div class="sym-item">
+              <div class="sym-labels">
+                <span>Izquierda: <strong id="lblPctLeft">50%</strong></span>
+                <span>Derecha: <strong id="lblPctRight">50%</strong></span>
+              </div>
+              <div class="split-bar">
+                <div id="barLeftRight" class="split-left" style="width: 50%"></div>
+              </div>
+            </div>
+
+            <div class="sym-item">
+              <div class="sym-labels">
+                <span>Frontal: <strong id="lblPctTop">50%</strong></span>
+                <span>Posterior: <strong id="lblPctBottom">50%</strong></span>
+              </div>
+              <div class="split-bar">
+                <div id="barTopBottom" class="split-top" style="width: 50%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sensors-grid">
+          <div class="sensor-card">
+            <span class="sensor-title">↖ Superior Izquierda (TL)</span>
+            <strong id="valTL" class="sensor-kg">0.00 kg</strong>
+            <div class="progress-track sm"><div id="barTL" class="progress-fill cyan" style="width: 25%"></div></div>
+            <span id="pctTL" class="sensor-pct">25%</span>
+          </div>
+          <div class="sensor-card">
+            <span class="sensor-title">↗ Superior Derecha (TR)</span>
+            <strong id="valTR" class="sensor-kg">0.00 kg</strong>
+            <div class="progress-track sm"><div id="barTR" class="progress-fill cyan" style="width: 25%"></div></div>
+            <span id="pctTR" class="sensor-pct">25%</span>
+          </div>
+          <div class="sensor-card">
+            <span class="sensor-title">↙ Inferior Izquierda (BL)</span>
+            <strong id="valBL" class="sensor-kg">0.00 kg</strong>
+            <div class="progress-track sm"><div id="barBL" class="progress-fill cyan" style="width: 25%"></div></div>
+            <span id="pctBL" class="sensor-pct">25%</span>
+          </div>
+          <div class="sensor-card">
+            <span class="sensor-title">↘ Inferior Derecha (BR)</span>
+            <strong id="valBR" class="sensor-kg">0.00 kg</strong>
+            <div class="progress-track sm"><div id="barBR" class="progress-fill cyan" style="width: 25%"></div></div>
+            <span id="pctBR" class="sensor-pct">25%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 3: HISTORIAL Y TENDENCIA -->
+      <section id="tab-history" class="tab-panel">
+        <div class="card">
+          <div class="card-header-inline">
+            <h2>Evolución de Peso</h2>
+            <div class="inline-btns">
+              <button id="btnExportCsv" class="btn btn-secondary btn-sm" type="button">📤 CSV</button>
+              <button id="btnClearHistory" class="btn btn-danger-soft btn-sm" type="button">🗑️ Limpiar</button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="canvasHistory" width="360" height="140"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header-inline">
+            <h2>Registros Guardados</h2>
+            <span id="txtHistoryCount" class="subtle-tag">0 pesajes</span>
+          </div>
+          <div id="historyList" class="history-list">
+            <p class="empty-msg">Aún no hay pesajes registrados. Al subir a la tabla y quedar estable, tu peso se guardará automáticamente.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 4: CONFIGURACIÓN ESP32 + PANTALLA MATRIZ 32x8 -->
+      <section id="tab-settings" class="tab-panel">
+        <!-- Bloque 1: Pantalla Matriz LED FC-16 MAX7219 -->
+        <div class="card">
+          <div class="card-header-inline">
+            <h2>📟 Pantalla Matriz LED 32×8 (ESP32)</h2>
+            <span id="tagCfgSync" class="subtle-tag">Memoria NVS</span>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Encender Pantalla Matriz LED</strong>
+              <p>Activa o apaga por completo los módulos MAX7219.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chkMatrixEnabled" checked disabled />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row column">
+            <div class="row-between">
+              <strong>Brillo de LEDs (MAX7219)</strong>
+              <span id="lblBrightnessVal" class="mono-tag">4 / 15</span>
+            </div>
+            <input type="range" id="rngBrightness" min="0" max="15" step="1" value="4" disabled />
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Girar Pantalla 180° (Invertir)</strong>
+              <p>Útil si colocaste los cables del conector IN hacia el lado izquierdo.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chkMatrixFlip" disabled />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Tiempo de Retención (Modo Hold)</strong>
+              <p>Mantiene tu peso fijo con ✓ al bajar de la tabla.</p>
+            </div>
+            <select id="selHoldSeconds" class="select-input" disabled>
+              <option value="0">Apagado (0s)</option>
+              <option value="5">5 segundos</option>
+              <option value="10" selected>10 segundos</option>
+              <option value="15">15 segundos</option>
+              <option value="20">20 segundos</option>
+              <option value="30">30 segundos</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Unidad en Pantalla Física 32×8</strong>
+              <p>Elige si la matriz del ESP32 muestra KG o LBS.</p>
+            </div>
+            <select id="selMatrixUnit" class="select-input" disabled>
+              <option value="0" selected>Kilogramos (KG)</option>
+              <option value="1">Libras (LB)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Bloque 2: Wii Balance Board y Vínculo Bluetooth -->
+        <div class="card">
+          <div class="card-header-inline">
+            <h2>🎮 Wii Balance Board & Vínculo</h2>
+            <span id="lblBoardBondBadge" class="subtle-tag">Sin leer</span>
+          </div>
+
+          <div class="info-kv">
+            <span>MAC Tabla Guardada en ESP32:</span>
+            <code id="lblSavedMac">--:--:--:--:--:--</code>
+          </div>
+          <div class="info-kv">
+            <span>Offset de Tara Actual:</span>
+            <code id="lblTareOffset">0.00 kg</code>
+          </div>
+
+          <div class="settings-btn-grid">
+            <button id="btnCfgSync" class="btn btn-secondary" type="button" disabled>
+              🔴 Buscar con Botón SYNC
+            </button>
+            <button id="btnCfgOff" class="btn btn-secondary" type="button" disabled>
+              ⏻ Apagar Tabla Ahora
+            </button>
+            <button id="btnCfgForget" class="btn btn-danger-soft full-span" type="button" disabled>
+              🗑️ Olvidar Vínculo Permanente en ESP32 (NVS)
+            </button>
+          </div>
+        </div>
+
+        <!-- Bloque 3: Preferencias Locales en tu Celular -->
+        <div class="card">
+          <div class="card-header-inline">
+            <h2>📱 Preferencias en este Dispositivo</h2>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Tu Estatura (para calcular IMC)</strong>
+              <p>Se guarda únicamente en tu celular (deja 0 para ocultar).</p>
+            </div>
+            <div class="input-suffix">
+              <input type="number" id="inpHeightCm" min="0" max="250" placeholder="175" class="num-input" />
+              <span>cm</span>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Auto-guardar al estabilizar (&gt; 10 kg)</strong>
+              <p>Registra automáticamente el peso cuando alcanza 5★.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chkAutoSave" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <strong>Sonido y vibración al fijar peso</strong>
+              <p>Emite un tono suave cuando puedes bajarte de la tabla.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="chkSoundAlert" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Navegación Inferior Móvil -->
+    <nav class="bottom-nav" aria-label="Navegación principal">
+      <button class="nav-item active" data-target="tab-scale" type="button">
+        <span class="nav-icon">⚖️</span>
+        <span>Báscula</span>
+      </button>
+      <button class="nav-item" data-target="tab-balance" type="button">
+        <span class="nav-icon">🎯</span>
+        <span>Equilibrio</span>
+      </button>
+      <button class="nav-item" data-target="tab-history" type="button">
+        <span class="nav-icon">📊</span>
+        <span>Historial</span>
+      </button>
+      <button class="nav-item" data-target="tab-settings" type="button">
+        <span class="nav-icon">⚙️</span>
+        <span>ESP32</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Toast flotante -->
+  <div id="toastMsg" class="toast hidden"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B132B"/>
+      <stop offset="100%" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="board" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#CBD5E1"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#080D1A"/>
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="none" stroke="url(#bg)" stroke-width="10" opacity="0.6"/>
+  <!-- Wii Balance Board stylized body -->
+  <rect x="76" y="128" width="360" height="256" rx="44" fill="url(#board)"/>
+  <line x1="256" y1="142" x2="256" y2="370" stroke="#94A3B8" stroke-width="6"/>
+  <!-- Digital display window -->
+  <rect x="166" y="154" width="180" height="58" rx="14" fill="#0F172A"/>
+  <text x="256" y="194" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="800" font-size="34" fill="#22D3EE">74.8</text>
+  <!-- Footpads -->
+  <rect x="104" y="230" width="124" height="122" rx="22" fill="#E2E8F0"/>
+  <rect x="284" y="230" width="124" height="122" rx="22" fill="#E2E8F0"/>
+  <!-- Center of Gravity glowing dot -->
+  <circle cx="256" cy="290" r="22" fill="#10B981" opacity="0.28"/>
+  <circle cx="256" cy="290" r="10" fill="#10B981"/>
+  <!-- Power LED -->
+  <rect x="236" y="362" width="40" height="10" rx="5" fill="#06B6D4"/>
+</svg>
+
